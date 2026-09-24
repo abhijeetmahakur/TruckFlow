@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TruckFlow — India Truck Load Optimization & Logistics Platform</title>
+  <meta name="description" content="AI-driven truck load optimization platform for road logistics in India. Eliminate empty return kilometers with round-trip and multi-leg freight matching.">
+
+  <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS for Map Animation -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <!-- Custom Stylesheet inspired by Figma trucks-animation -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Top System Bar -->
+    <header class="top-nav-bar">
+      <div class="brand-area">
+        <div class="brand-logo-mark">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
+            <path d="M15 18H9"/>
+            <path d="M19 18h2a1 1 0 0 0 1-1v-5l-3-4h-5v10"/>
+            <circle cx="7" cy="18" r="2"/>
+            <circle cx="17" cy="18" r="2"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">TruckFlow</span>
+          <span class="brand-tag">Backhaul Optimizer</span>
+        </div>
+      </div>
+
+      <!-- Live KPI Metrics Ticker (Step 4) -->
+      <div class="kpi-ticker">
+        <div class="kpi-pill">
+          <span class="kpi-label">Total Trucks</span>
+          <span class="kpi-val" id="stat-total-trucks">245</span>
+        </div>
+        <div class="kpi-pill">
+          <span class="kpi-label">Available Loads</span>
+          <span class="kpi-val" id="stat-available-loads">81</span>
+        </div>
+        <div class="kpi-pill">
+          <span class="kpi-label">Active Trips</span>
+          <span class="kpi-val highlight-blue" id="stat-active-trips">32</span>
+        </div>
+        <div class="kpi-pill">
+          <span class="kpi-label">Potential Matches</span>
+          <span class="kpi-val highlight-orange" id="stat-matches">46</span>
+        </div>
+        <div class="kpi-pill empty-km-pill">
+          <span class="kpi-label">🌱 Empty KM Saved</span>
+          <span class="kpi-val highlight-green" id="stat-empty-saved">82,400 KM</span>
+        </div>
+        <div class="kpi-pill">
+          <span class="kpi-label">Est. Freight</span>
+          <span class="kpi-val" id="stat-freight">₹24,50,000</span>
+        </div>
+      </div>
+
+      <!-- Role Switcher (Step 2) -->
+      <div class="role-selector-wrapper">
+        <label for="role-select">Role:</label>
+        <select id="role-select" class="role-dropdown">
+          <option value="BROKER" selected>Freight Broker</option>
+          <option value="TRUCK_OWNER">Truck Owner</option>
+          <option value="DRIVER">Driver (Mobile-First)</option>
+          <option value="SHIPPER">Shipper / Company</option>
+          <option value="ADMIN">System Admin</option>
+        </select>
+        <div class="user-avatar-badge" title="Rajesh Sharma (Apex Freight Brokers)">
+          RS
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace with Icon Sidebar and Dashboard Grid -->
+    <div class="main-layout">
+
+      <!-- Left Vertical Dark Icon Sidebar (Figma) -->
+      <aside class="icon-sidebar">
+        <div class="nav-icon-group">
+          <button class="nav-icon-btn active" id="btn-nav-dashboard" title="Dashboard">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="7" height="9" x="3" y="3" rx="1"/>
+              <rect width="7" height="5" x="14" y="3" rx="1"/>
+              <rect width="7" height="9" x="14" y="12" rx="1"/>
+              <rect width="7" height="5" x="3" y="16" rx="1"/>
+            </svg>
+          </button>
+          
+          <button class="nav-icon-btn" id="btn-nav-tracking" title="Live Map & GPS Tracking">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+          </button>
+
+          <button class="nav-icon-btn" id="btn-nav-matching" title="Round-Trip Matching Cockpit">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m16.5 9.4 4.5-2.8-9-5.6-9 5.6 4.5 2.8"/>
+              <path d="M21 16.2V7.8"/>
+              <path d="m3.5 14.6 4.5 2.8 4.5-2.8"/>
+              <path d="M3 7.8v8.4"/>
+              <path d="m12 12.2 4.5 2.8 4.5-2.8"/>
+              <path d="M12 21.4v-9.2"/>
+            </svg>
+            <span class="sidebar-badge">NEW</span>
+          </button>
+
+          <button class="nav-icon-btn" id="btn-nav-trucks" title="Truck Fleet Management">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
+              <path d="M15 18H9"/>
+              <path d="M19 18h2a1 1 0 0 0 1-1v-5l-3-4h-5v10"/>
+              <circle cx="7" cy="18" r="2"/>
+              <circle cx="17" cy="18" r="2"/>
+            </svg>
+          </button>
+
+          <button class="nav-icon-btn" id="btn-nav-calculator" title="Trip Profit & Empty KM Calculator">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="16" height="20" x="4" y="2" rx="2"/>
+              <line x1="8" x2="16" y1="6" y2="6"/>
+              <line x1="16" x2="16" y1="14" y2="18"/>
+              <path d="M16 10h.01"/>
+              <path d="M12 10h.01"/>
+              <path d="M8 10h.01"/>
+              <path d="M12 14h.01"/>
+              <path d="M8 14h.01"/>
+              <path d="M12 18h.01"/>
+              <path d="M8 18h.01"/>
+            </svg>
+          </button>
+
+          <button class="nav-icon-btn" id="btn-nav-crm" title="Broker CRM & Contacts">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </button>
+
+          <button class="nav-icon-btn" id="btn-nav-analytics" title="Analytics & Reports">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" x2="12" y1="20" y2="10"/>
+              <line x1="18" x2="18" y1="20" y2="4"/>
+              <line x1="6" x2="6" y1="20" y2="16"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="nav-icon-bottom">
+          <button class="nav-icon-btn" id="btn-open-whatsapp" title="WhatsApp Logistics Bot Preview">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+            </svg>
+          </button>
+        </div>
+      </aside>
+
+      <!-- Center-Stage Figma Grid Container -->
+      <main class="dashboard-viewport">
+        
+        <!-- SECTION 1: Figma Three-Column Hero Showcase (Timeline Card + 3D Truck Center + Interactive Map) -->
+        <div class="figma-hero-grid">
+          
+          <!-- LEFT COLUMN: Shipment Timeline Cards -->
+          <div class="shipment-timeline-col">
+            
+            <!-- Primary Active Blue Timeline Card (Exact Figma Style) -->
+            <div class="shipment-card active-blue-card">
+              <div class="card-top-row">
+                <span class="shipment-id-badge" id="active-shipment-id">#TRK-JH-TN-9812</span>
+                <button class="card-action-btn" title="Expand Details" id="btn-toggle-timeline">✕</button>
+              </div>
+
+              <div class="card-pills-row">
+                <span class="status-pill pill-delivery">In Transit • 58 km/h</span>
+                <span class="status-pill pill-category">Steel Coils (20T)</span>
+              </div>
+
+              <!-- Dotted Step Timeline -->
+              <div class="timeline-steps-container">
+                <div class="timeline-step completed">
+                  <div class="step-indicator">
+                    <span class="indicator-dot"></span>
+                  </div>
+                  <div class="step-content">
+                    <div class="step-title">Loaded at Steel Plant</div>
+                    <div class="step-subtitle">BOKARO / RANCHI, JHARKHAND</div>
+                  </div>
+                </div>
+
+                <div class="timeline-step in-progress">
+                  <div class="step-indicator">
+                    <span class="indicator-dot pulse"></span>
+                  </div>
+                  <div class="step-content">
+                    <div class="step-title">In Transit on NH-16</div>
+                    <div class="step-subtitle">VISAKHAPATNAM CORRIDOR (KM 980)</div>
+                  </div>
+                </div>
+
+                <div class="timeline-step pending">
+                  <div class="step-indicator">
+                    <span class="indicator-dot"></span>
+                  </div>
+                  <div class="step-content">
+                    <div class="step-title">Turnaround & Unload Point</div>
+                    <div class="step-subtitle">ENNORE AUTO ZONE, CHENNAI</div>
+                  </div>
+                </div>
+
+                <div class="timeline-step return-auto-step">
+                  <div class="step-indicator return-indicator">
+                    <span class="indicator-dot return-dot"></span>
+                  </div>
+                  <div class="step-content">
+                    <div class="step-title highlight-gold">✨ Return Load Chained!</div>
+                    <div class="step-subtitle">CHENNAI → RANCHI (LOAD-002, 18T)</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Secondary Shipment Queue Card 1 -->
+            <div class="shipment-card secondary-card clickable-load-card" data-load-id="LOAD-002">
+              <div class="card-top-row">
+                <span class="secondary-id">#LOAD-002 (Return)</span>
+                <span class="match-mini-badge">92% Match</span>
+              </div>
+              <div class="card-pills-row">
+                <span class="status-pill-sub">Auto Parts</span>
+                <span class="status-pill-sub">18 Ton</span>
+              </div>
+              <div class="secondary-route">
+                <span class="route-city">Chennai</span> → <span class="route-city">Ranchi</span>
+                <span class="route-freight">₹78,000</span>
+              </div>
+            </div>
+
+            <!-- Secondary Shipment Queue Card 2 (Multi-Leg) -->
+            <div class="shipment-card secondary-card clickable-load-card" data-load-id="MULTI-LEG">
+              <div class="card-top-row">
+                <span class="secondary-id">#MULTI-LEG-CHAIN</span>
+                <span class="match-mini-badge badge-purple">88% Chain</span>
+              </div>
+              <div class="card-pills-row">
+                <span class="status-pill-sub">Chennai → BBSR → Ranchi</span>
+              </div>
+              <div class="secondary-route">
+                <span class="route-city">2-Leg Return</span>
+                <span class="route-freight highlight-gold">₹82,000</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- CENTER COLUMN: 3D Truck Hero Showcase with Metric Chips & Driver Badge -->
+          <div class="truck-showcase-col">
+            
+            <div class="truck-presentation-card">
+              <!-- Top Model & License Plate Row -->
+              <div class="truck-meta-header">
+                <div>
+                  <h2 class="truck-model-title" id="truck-display-model">Tata Prima 5530.S Trailer</h2>
+                  <a href="#" class="view-documents-link" id="btn-view-docs">View Vehicle & National Permits ›</a>
+                </div>
+
+                <!-- Realistic Indian Vehicle Number Plate (Figma) -->
+                <div class="indian-number-plate">
+                  <div class="plate-ind-strip">
+                    <span class="ind-text">IND</span>
+                  </div>
+                  <div class="plate-number" id="truck-display-reg">JH-01-AB-1234</div>
+                </div>
+              </div>
+
+              <!-- 3D Truck Hero Image Rendering -->
+              <div class="truck-3d-stage">
+                <img src="/static/assets/truck_3d.jpg" alt="White Logistics Semi-Truck" class="truck-hero-img" id="truck-hero-img">
+                <div class="truck-ground-shadow"></div>
+
+                <!-- Floating Route Pill Overlay -->
+                <div class="floating-route-tag">
+                  <span class="origin-tag">Ranchi, JH</span>
+                  <span class="arrow-tag">⇄</span>
+                  <span class="dest-tag">Chennai, TN</span>
+                  <span class="corridor-badge">NH-16 Corridor</span>
+                </div>
+              </div>
+
+              <!-- 4 Quick-Spec Metric Chips (Figma) -->
+              <div class="specs-metrics-grid">
+                
+                <div class="spec-chip">
+                  <div class="chip-top">
+                    <span class="spec-number" id="spec-payload">25</span>
+                    <span class="spec-unit">Ton</span>
+                    <span class="spec-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                    </span>
+                  </div>
+                  <div class="chip-bottom-label">Payload Capacity</div>
+                </div>
+
+                <div class="spec-chip">
+                  <div class="chip-top">
+                    <span class="spec-number" id="spec-volume">1,800</span>
+                    <span class="spec-unit">cu.ft</span>
+                    <span class="spec-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+                    </span>
+                  </div>
+                  <div class="chip-bottom-label">Cargo Volume</div>
+                </div>
+
+                <div class="spec-chip">
+                  <div class="chip-top">
+                    <span class="spec-number" id="spec-distance">1,620</span>
+                    <span class="spec-unit">km</span>
+                    <span class="spec-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+                    </span>
+                  </div>
+                  <div class="chip-bottom-label">Highway Distance</div>
+                </div>
+
+                <div class="spec-chip">
+                  <div class="chip-top">
+                    <span class="spec-number" id="spec-eta">32</span>
+                    <span class="spec-unit">Hours</span>
+                    <span class="spec-icon">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </span>
+                  </div>
+                  <div class="chip-bottom-label">Estimated Transit</div>
+                </div>
+
+              </div>
+
+              <!-- Bottom Row: Floating Driver Card & Delivery Address Card -->
+              <div class="truck-bottom-cards-row">
+                
+                <!-- Floating Driver Card (Figma) -->
+                <div class="driver-profile-card">
+                  <div class="driver-avatar-circle">
+                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces" alt="Driver Suresh Kumar">
+                  </div>
+                  <div class="driver-info">
+                    <div class="driver-badge-tag">Verified Driver</div>
+                    <div class="driver-id-text">ID: DL-04-2016-9812</div>
+                    <div class="driver-name-text" id="driver-display-name">Suresh Kumar</div>
+                  </div>
+                  <div class="driver-actions-wrap">
+                    <button class="driver-call-btn" id="btn-call-driver" title="Call Driver">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                      Call
+                    </button>
+                    <button class="driver-pod-btn" id="btn-open-pod" title="Proof of Delivery (POD)">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>
+                      POD
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Floating Delivery Address Card (Figma) -->
+                <div class="destination-address-card">
+                  <div class="dest-label-row">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+                    <span>Delivery Destination</span>
+                  </div>
+                  <div class="dest-address-text">
+                    Ambattur Industrial Estate, Chennai, Tamil Nadu - 600058
+                  </div>
+                  <div class="dest-time-row">
+                    <span class="calendar-icon">📅</span>
+                    <span class="delivery-time-text">ETA: 02:30 PM • Friday</span>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <!-- RIGHT COLUMN: Interactive Animated Highway Route Map (Figma trucks-animation) -->
+          <div class="map-showcase-col">
+            <div class="map-card-container">
+              
+              <div class="map-card-header">
+                <div class="map-title-wrap">
+                  <span class="live-dot pulse-red"></span>
+                  <span class="map-title">Live Highway Telemetry (NH-16 Corridor)</span>
+                </div>
+
+                <!-- Map Animation Controls -->
+                <div class="map-controls-group">
+                  <button class="anim-control-btn active" id="btn-play-animation" title="Play Simulation">▶</button>
+                  <button class="anim-control-btn" id="btn-pause-animation" title="Pause Simulation">⏸</button>
+                  <button class="anim-control-btn" id="btn-reset-animation" title="Reset Route">↺</button>
+                  <button class="anim-control-btn" id="btn-speed-toggle" title="Toggle Speed">2x</button>
+                </div>
+              </div>
+
+              <!-- Leaflet Map Container -->
+              <div id="highway-map" class="highway-map-stage"></div>
+
+              <!-- Telemetry Floating HUD -->
+              <div class="map-hud-overlay">
+                <div class="hud-item">
+                  <span class="hud-label">GPS Speed</span>
+                  <span class="hud-val" id="hud-speed">58 km/h</span>
+                </div>
+                <div class="hud-item">
+                  <span class="hud-label">Remaining</span>
+                  <span class="hud-val" id="hud-remaining">640 km</span>
+                </div>
+                <div class="hud-item">
+                  <span class="hud-label">Live Waypoint</span>
+                  <span class="hud-val" id="hud-waypoint">Visakhapatnam Bypass</span>
+                </div>
+                <div class="hud-item">
+                  <span class="hud-label">Est. Toll</span>
+                  <span class="hud-val highlight-gold" id="hud-toll">₹6,804 (FASTag)</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- SECTION 2: Centerpiece Feature — Round-Trip & Multi-Leg Load Matching Cockpit (Step 5) -->
+        <section class="matching-cockpit-section" id="section-matching">
+          <div class="section-header-bar">
+            <div>
+              <div class="badge-tag-row">
+                <span class="pill-badge pill-blue">Centerpiece Feature</span>
+                <span class="pill-badge pill-green">Step 5 Engine Active</span>
+              </div>
+              <h2 class="section-title">Round-Trip & Multi-Leg Load Matching Engine</h2>
+              <p class="section-subtitle">
+                Keeps <strong>JH01AB1234</strong> loaded in both directions. Outbound load is locked, and the system automatically matches high-margin return freight and multi-leg backhauls.
+              </p>
+            </div>
+
+            <div class="action-buttons-group">
+              <button class="btn btn-emerald" id="btn-open-post-load">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+                Post New Load
+              </button>
+              <button class="btn btn-indigo" id="btn-open-fleet">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-5l-3-4h-5v10"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+                Fleet Directory
+              </button>
+              <button class="btn btn-outline" id="btn-refresh-matches">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                Auto-Scan Backhauls
+              </button>
+              <button class="btn btn-primary" id="btn-open-profit-modal">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                Calculate Trip Profit
+              </button>
+            </div>
+          </div>
+
+          <!-- The Match Board Grid: Leg 1 Going Load + Leg 2 Direct Return + Leg 2 Multi-Leg Chain -->
+          <div class="match-board-grid">
+            
+            <!-- COLUMN A: Confirmed Outbound (Going) Load -->
+            <div class="match-column outbound-column">
+              <div class="match-column-header">
+                <div class="leg-indicator leg-outbound">LEG 1 • OUTBOUND</div>
+                <span class="status-indicator-tag status-locked">✓ CONFIRMED</span>
+              </div>
+
+              <div class="load-card outbound-load-card">
+                <div class="load-card-header">
+                  <div>
+                    <span class="load-code-badge">LOAD-001</span>
+                    <h3 class="load-title">Tata Steel BSL / Bokaro Steel</h3>
+                  </div>
+                  <div class="load-freight-amount">₹85,000</div>
+                </div>
+
+                <div class="corridor-visual">
+                  <div class="corridor-point">
+                    <span class="corridor-dot blue"></span>
+                    <span class="corridor-city">Ranchi, JH</span>
+                  </div>
+                  <div class="corridor-arrow-line">
+                    <span class="arrow-distance">1,620 KM</span>
+                  </div>
+                  <div class="corridor-point">
+                    <span class="corridor-dot red"></span>
+                    <span class="corridor-city">Chennai, TN</span>
+                  </div>
+                </div>
+
+                <div class="load-details-grid">
+                  <div class="detail-item">
+                    <span class="detail-label">Payload Weight</span>
+                    <span class="detail-val">20.0 Ton (Steel Coils)</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Body Compatibility</span>
+                    <span class="detail-val">Heavy Trailer (100%)</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Pickup Date</span>
+                    <span class="detail-val">Today (Ready)</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Market Benchmark</span>
+                    <span class="detail-val highlight-green">₹82,000 (Fair Rate)</span>
+                  </div>
+                </div>
+
+                <div class="load-card-footer">
+                  <div class="match-score-pill score-high">
+                    <span class="score-number">99%</span>
+                    <span class="score-text">Optimal Outbound Fit</span>
+                  </div>
+                  <span class="empty-km-note">Turnaround at Chennai</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- COLUMN B: Auto-Triggered Direct Return Matches (Centerpiece Step 5) -->
+            <div class="match-column return-column">
+              <div class="match-column-header">
+                <div class="leg-indicator leg-return">LEG 2 • DIRECT RETURN</div>
+                <span class="auto-triggered-pill">⚡ Auto-Found (Zero Empty KM)</span>
+              </div>
+
+              <div class="load-card direct-return-card selected-return-card" id="card-direct-return">
+                <div class="load-card-header">
+                  <div>
+                    <span class="load-code-badge badge-green">LOAD-002 (Direct Return)</span>
+                    <h3 class="load-title">Hyundai Mobis / TVS Spares</h3>
+                  </div>
+                  <div class="load-freight-amount highlight-green">₹78,000</div>
+                </div>
+
+                <div class="corridor-visual">
+                  <div class="corridor-point">
+                    <span class="corridor-dot red"></span>
+                    <span class="corridor-city">Chennai, TN</span>
+                  </div>
+                  <div class="corridor-arrow-line return-line">
+                    <span class="arrow-distance">1,620 KM</span>
+                  </div>
+                  <div class="corridor-point">
+                    <span class="corridor-dot blue"></span>
+                    <span class="corridor-city">Ranchi, JH</span>
+                  </div>
+                </div>
+
+                <div class="load-details-grid">
+                  <div class="detail-item">
+                    <span class="detail-label">Payload Weight</span>
+                    <span class="detail-val">18.0 Ton (Auto Spares)</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Empty KM Saved</span>
+                    <span class="detail-val highlight-green font-bold">1,620 KM (100%)</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Pickup Window</span>
+                    <span class="detail-val">On Arrival (Chennai)</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Market Benchmark</span>
+                    <span class="detail-val">₹75,000 (+4% Premium)</span>
+                  </div>
+                </div>
+
+                <!-- Explainable Factor Breakdown (Step 6) -->
+                <div class="explainable-score-box">
+                  <div class="score-breakdown-header">
+                    <div class="overall-score-tag">
+                      <span class="badge-num">92%</span> Match Score
+                    </div>
+                    <span class="why-matched-text">Why it matched:</span>
+                  </div>
+                  <div class="factor-chips-container">
+                    <span class="factor-chip" title="Proximity 25/25">Corridor Fit: 25/25</span>
+                    <span class="factor-chip" title="Capacity Fit 17/20">Capacity (72%): 17/20</span>
+                    <span class="factor-chip" title="Compatibility 15/15">Container Fit: 15/15</span>
+                    <span class="factor-chip" title="Schedule 11/15">Ready on arrival: 11/15</span>
+                    <span class="factor-chip" title="Deviation 15/15">Zero Detour: 15/15</span>
+                    <span class="factor-chip" title="Revenue 9/10">Fair Freight: 9/10</span>
+                  </div>
+                </div>
+
+                <div class="load-card-footer">
+                  <button class="btn btn-success btn-full" id="btn-book-direct-return">
+                    ✓ Book Direct Round-Trip (Total ₹1,63,000)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- COLUMN C: Multi-Leg Alternative (Step 8: Chennai → Bhubaneswar → Ranchi) -->
+            <div class="match-column multileg-column">
+              <div class="match-column-header">
+                <div class="leg-indicator leg-multileg">ALTERNATIVE • MULTI-LEG CHAIN</div>
+                <span class="detour-pill">+60 KM Detour • Extra Freight</span>
+              </div>
+
+              <div class="load-card multileg-chain-card" id="card-multi-leg">
+                <div class="load-card-header">
+                  <div>
+                    <span class="load-code-badge badge-purple">2-Leg Triangular Return</span>
+                    <h3 class="load-title">Coromandel + NALCO Smelter</h3>
+                  </div>
+                  <div class="load-freight-amount highlight-purple">₹82,000</div>
+                </div>
+
+                <div class="multi-leg-steps-visual">
+                  <div class="leg-chip">
+                    <span class="leg-seq">Leg A</span>
+                    <span class="leg-route">Chennai → Bhubaneswar (15T)</span>
+                    <span class="leg-val">₹48,000</span>
+                  </div>
+                  <div class="leg-connector">↓ Transship / Reload (Bhubaneswar Hub)</div>
+                  <div class="leg-chip">
+                    <span class="leg-seq">Leg B</span>
+                    <span class="leg-route">Bhubaneswar → Ranchi (12T)</span>
+                    <span class="leg-val">₹34,000</span>
+                  </div>
+                </div>
+
+                <div class="load-details-grid">
+                  <div class="detail-item">
+                    <span class="detail-label">Combined Freight</span>
+                    <span class="detail-val highlight-gold font-bold">₹82,000 (+₹4,000 more)</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Detour Distance</span>
+                    <span class="detail-val">+60 KM (Total 1,680 KM)</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Empty KM Avoided</span>
+                    <span class="detail-val highlight-green">1,620 KM</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Extra Driving Time</span>
+                    <span class="detail-val">+2.5 Hours</span>
+                  </div>
+                </div>
+
+                <!-- Explainable Score Tag -->
+                <div class="explainable-score-box">
+                  <div class="score-breakdown-header">
+                    <div class="overall-score-tag">
+                      <span class="badge-num purple-bg">88%</span> Multi-Leg Match
+                    </div>
+                    <span class="why-matched-text">Triangular route provides +₹4,000 extra revenue</span>
+                  </div>
+                </div>
+
+                <div class="load-card-footer">
+                  <button class="btn btn-purple btn-full" id="btn-book-multi-leg">
+                    Book Multi-Leg Chain (Total ₹1,67,000)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- MODAL 1: Step 7 & 9 Trip Profit & Empty KM Financial Simulator -->
+    <div class="modal-backdrop" id="modal-profit-calculator">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-icon">📊</span>
+            <div>
+              <h3 class="modal-title">Trip Profitability & Empty KM Impact Engine</h3>
+              <p class="modal-subtitle">Interactive financial model comparing "Empty Return" vs "Chained Return Backhaul"</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="btn-close-profit-modal">✕</button>
+        </div>
+
+        <div class="modal-body">
+          
+          <!-- Side-by-Side Comparison Banners -->
+          <div class="scenarios-comparison-grid">
+            
+            <!-- Scenario A: Without Return Load (Empty Backhaul) -->
+            <div class="scenario-card scenario-loss">
+              <div class="scenario-header">
+                <span class="scenario-tag tag-red">SCENARIO A</span>
+                <h4>Without Return Load</h4>
+                <p class="scenario-desc">Truck delivers steel to Chennai and returns empty to Ranchi (1,620 Empty KM)</p>
+              </div>
+
+              <div class="scenario-stats">
+                <div class="scen-stat-row">
+                  <span>Gross Freight:</span>
+                  <span class="stat-num">₹85,000</span>
+                </div>
+                <div class="scen-stat-row">
+                  <span>Total Expenses:</span>
+                  <span class="stat-num text-red">₹1,15,567</span>
+                </div>
+                <div class="scen-stat-row total-row">
+                  <span>Net Profit / Loss:</span>
+                  <span class="stat-num text-red font-bold" id="scen-a-profit">-₹30,567 (LOSS)</span>
+                </div>
+                <div class="scen-stat-row">
+                  <span>Empty KM %:</span>
+                  <span class="stat-num text-red">50.0% Wasted</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Scenario B: With Chained Return Load (TruckFlow Backhaul) -->
+            <div class="scenario-card scenario-profit">
+              <div class="scenario-header">
+                <span class="scenario-tag tag-green">SCENARIO B (TRUCKFLOW)</span>
+                <h4>With Matched Return Load</h4>
+                <p class="scenario-desc">Truck delivers steel to Chennai and returns with auto spares to Ranchi</p>
+              </div>
+
+              <div class="scenario-stats">
+                <div class="scen-stat-row">
+                  <span>Gross Freight:</span>
+                  <span class="stat-num highlight-green font-bold">₹1,63,000</span>
+                </div>
+                <div class="scen-stat-row">
+                  <span>Total Expenses:</span>
+                  <span class="stat-num">₹1,17,907</span>
+                </div>
+                <div class="scen-stat-row total-row">
+                  <span>Net Net Profit:</span>
+                  <span class="stat-num highlight-green font-bold" id="scen-b-profit">+₹45,093 (HIGH PROFIT)</span>
+                </div>
+                <div class="scen-stat-row">
+                  <span>Empty KM Saved:</span>
+                  <span class="stat-num highlight-green font-bold">1,620 KM (100% Loaded)</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Financial Profit Jump Banner -->
+          <div class="profit-gain-banner">
+            <div class="gain-icon">🚀</div>
+            <div class="gain-text">
+              <div class="gain-title">Net Financial Advantage: +₹75,660 Additional Profit</div>
+              <div class="gain-desc">Chaining the backhaul eliminates empty running costs and turns a -₹30.5k loss into +₹45k cash profit.</div>
+            </div>
+          </div>
+
+          <!-- Interactive Parameter Sliders (Step 9) -->
+          <div class="calculator-controls-panel">
+            <h4 class="calc-panel-title">Trip Assumption Parameters (Real-Time Adjustment)</h4>
+            
+            <div class="sliders-grid">
+              
+              <div class="slider-control">
+                <div class="slider-label-row">
+                  <span>Diesel Price (₹ / Litre)</span>
+                  <span class="slider-val-badge" id="val-diesel">₹92.50</span>
+                </div>
+                <input type="range" min="80" max="110" step="0.5" value="92.5" id="slider-diesel" class="styled-slider">
+              </div>
+
+              <div class="slider-control">
+                <div class="slider-label-row">
+                  <span>Truck Mileage (KM / Litre)</span>
+                  <span class="slider-val-badge" id="val-kmpl">3.5 km/L</span>
+                </div>
+                <input type="range" min="2.5" max="5.0" step="0.1" value="3.5" id="slider-kmpl" class="styled-slider">
+              </div>
+
+              <div class="slider-control">
+                <div class="slider-label-row">
+                  <span>FASTag Toll Rate (₹ / KM)</span>
+                  <span class="slider-val-badge" id="val-toll">₹4.20/km</span>
+                </div>
+                <input type="range" min="2.5" max="6.0" step="0.1" value="4.2" id="slider-toll" class="styled-slider">
+              </div>
+
+              <div class="slider-control">
+                <div class="slider-label-row">
+                  <span>Driver Daily Allowance (Bata)</span>
+                  <span class="slider-val-badge" id="val-driver">₹1,200/day</span>
+                </div>
+                <input type="range" min="800" max="2500" step="100" value="1200" id="slider-driver" class="styled-slider">
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="btn-dismiss-profit-modal">Close</button>
+          <button class="btn btn-primary" id="btn-export-quote">Export Financial Quote (PDF / LR)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 2: WhatsApp Logistics Bot Simulation Drawer (Step 15) -->
+    <div class="whatsapp-drawer" id="whatsapp-drawer">
+      <div class="wa-header">
+        <div class="wa-contact-info">
+          <div class="wa-avatar">🤖</div>
+          <div>
+            <div class="wa-name">TruckFlow WhatsApp Bot</div>
+            <div class="wa-status">online • instant trucker updates</div>
+          </div>
+        </div>
+        <button class="wa-close-btn" id="btn-close-whatsapp">✕</button>
+      </div>
+
+      <div class="wa-chat-body" id="wa-chat-body">
+        <div class="wa-msg wa-in">
+          <div class="wa-bubble">
+            <strong>नमस्ते सुरेश जी (Driver)! 🚚</strong><br>
+            Tata Prima <code>JH01AB1234</code> के लिए चेन्नई से वापसी लोड (Return Load) मिला है:<br><br>
+            📦 <strong>Hyundai Auto Spares (18 Ton)</strong><br>
+            📍 चेन्नई (Chennai) → रांची (Ranchi)<br>
+            💰 भाड़ा (Freight): <strong>₹78,000</strong><br>
+            🌱 खाली किमी बचा (Empty KM Saved): <strong>1,620 KM</strong><br><br>
+            स्वीकार करने के लिए नीचे दिए गए बटन पर टैप करें।
+            <div class="wa-buttons-inline">
+              <button class="wa-action-btn" id="btn-wa-accept">✅ Accept Load</button>
+              <button class="wa-action-btn" id="btn-wa-location">📍 Share Live GPS</button>
+            </div>
+            <span class="wa-time">11:15 AM</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="wa-input-row">
+        <input type="text" placeholder="Type a message or command (e.g. status, eta)..." id="wa-input" class="wa-input-field">
+        <button class="wa-send-btn" id="btn-wa-send">➤</button>
+      </div>
+    </div>
+
+    <!-- MODAL 3: Fleet Management & Active Truck Selector -->
+    <div class="modal-backdrop" id="modal-fleet-management">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-icon">🚛</span>
+            <div>
+              <h3 class="modal-title">Fleet Directory & Truck Management</h3>
+              <p class="modal-subtitle">Browse all registered fleet trucks, select active vehicle, or register a new truck</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="btn-close-fleet-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="fleet-tabs-row">
+            <button class="fleet-tab active" id="tab-fleet-list">All Trucks (<span id="fleet-count">4</span>)</button>
+            <button class="fleet-tab" id="tab-add-truck">+ Add New Vehicle</button>
+          </div>
+          <div class="fleet-tab-content active" id="pane-fleet-list">
+            <div class="fleet-cards-grid" id="fleet-cards-container">
+              <!-- Dynamically populated from /api/trucks/ -->
+            </div>
+          </div>
+          <div class="fleet-tab-content" id="pane-add-truck" style="display:none;">
+            <form id="form-add-truck" class="modal-form-grid">
+              <div class="form-group">
+                <label>Vehicle Registration Number *</label>
+                <input type="text" id="truck-new-reg" placeholder="e.g. MH12AB5678" required>
+              </div>
+              <div class="form-group">
+                <label>Truck Model & Make *</label>
+                <input type="text" id="truck-new-model" placeholder="e.g. Tata Prima 5530.S" required>
+              </div>
+              <div class="form-group">
+                <label>Body Type</label>
+                <select id="truck-new-body">
+                  <option value="Closed Container 40ft">Closed Container 40ft</option>
+                  <option value="Multi-Axle Semi Trailer">Multi-Axle Semi Trailer</option>
+                  <option value="High Side Open Body">High Side Open Body</option>
+                  <option value="Flatbed Heavy Platform">Flatbed Heavy Platform</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Payload Capacity (Tons) *</label>
+                <input type="number" id="truck-new-cap" step="0.5" value="25.0" required>
+              </div>
+              <div class="form-group">
+                <label>Current Location (City) *</label>
+                <input type="text" id="truck-new-origin" placeholder="e.g. Ranchi" required>
+              </div>
+              <div class="form-group">
+                <label>Destination City *</label>
+                <input type="text" id="truck-new-dest" placeholder="e.g. Chennai" required>
+              </div>
+              <div class="form-group">
+                <label>Driver Name</label>
+                <input type="text" id="truck-new-driver" placeholder="e.g. Ramesh Kumar">
+              </div>
+              <div class="form-group">
+                <label>Driver Phone Number</label>
+                <input type="text" id="truck-new-phone" placeholder="e.g. +91 98765 00000">
+              </div>
+              <div class="form-group full-width">
+                <button type="submit" class="btn btn-primary btn-full">Register Vehicle into Active Fleet</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 4: Post New Freight Load -->
+    <div class="modal-backdrop" id="modal-post-load">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-icon">📦</span>
+            <div>
+              <h3 class="modal-title">Post New Freight Load</h3>
+              <p class="modal-subtitle">Add industrial or commercial cargo to trigger instant backhaul matching</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="btn-close-post-load-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <form id="form-post-load" class="modal-form-grid">
+            <div class="form-group">
+              <label>Shipper / Company Name *</label>
+              <input type="text" id="load-shipper-name" placeholder="e.g. Tata Steel BSL / Jindal" required>
+            </div>
+            <div class="form-group">
+              <label>Commodity / Goods Type *</label>
+              <input type="text" id="load-goods-type" placeholder="e.g. Industrial Steel Coils, Auto Parts" required>
+            </div>
+            <div class="form-group">
+              <label>Pickup City (Origin) *</label>
+              <input type="text" id="load-pickup-city" placeholder="e.g. Ranchi, Jamshedpur, Chennai" required>
+            </div>
+            <div class="form-group">
+              <label>Drop City (Destination) *</label>
+              <input type="text" id="load-drop-city" placeholder="e.g. Chennai, Bhubaneswar, Kolkata" required>
+            </div>
+            <div class="form-group">
+              <label>Cargo Weight (Tons) *</label>
+              <input type="number" id="load-weight" step="0.5" value="20.0" required>
+            </div>
+            <div class="form-group">
+              <label>Offered Freight (INR ₹) *</label>
+              <input type="number" id="load-freight" step="500" value="85000" required>
+            </div>
+            <div class="form-group full-width">
+              <label>Special Instructions / Handling</label>
+              <input type="text" id="load-instructions" placeholder="e.g. Standard warehouse loading dock; require tarp and chains.">
+            </div>
+            <div class="form-group full-width">
+              <button type="submit" class="btn btn-emerald btn-full">Post Cargo & Scan Backhaul Matches</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 5: Vehicle & National Permit Documents Modal -->
+    <div class="modal-backdrop" id="modal-vehicle-docs">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-icon">📜</span>
+            <div>
+              <h3 class="modal-title">Vehicle Compliance & National Permits</h3>
+              <p class="modal-subtitle">Verified RTO & Ministry of Road Transport (MoRTH) credentials for <strong id="doc-truck-reg">JH01AB1234</strong></p>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="btn-close-docs-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="compliance-status-banner">
+            <div class="status-badge-circle">✓</div>
+            <div>
+              <div class="banner-title">100% Verified Commercial Carrier</div>
+              <div class="banner-sub">All National Permits, Fitness Certificates & FASTag active on VAHAN Portal.</div>
+            </div>
+          </div>
+          <div class="docs-checklist-grid">
+            <div class="doc-card verified">
+              <div class="doc-head">
+                <span class="doc-name">National Permit (NP)</span>
+                <span class="doc-tag">Valid All-India</span>
+              </div>
+              <div class="doc-desc">Form 48 (Rule 87) - Authorization for all States & UTs</div>
+              <div class="doc-meta">Permit No: <strong>NP/2024/JH/882194</strong> • Valid till <strong>31-Dec-2028</strong></div>
+            </div>
+            <div class="doc-card verified">
+              <div class="doc-head">
+                <span class="doc-name">RC (Registration Certificate)</span>
+                <span class="doc-tag">Active</span>
+              </div>
+              <div class="doc-desc">Heavy Goods Vehicle (HGV) • Commercial Semi-Trailer</div>
+              <div class="doc-meta">Reg Date: <strong>14-Aug-2021</strong> • RTO: <strong>Ranchi (JH-01)</strong></div>
+            </div>
+            <div class="doc-card verified">
+              <div class="doc-head">
+                <span class="doc-name">Fitness Certificate (FC) & PUC</span>
+                <span class="doc-tag">Passed</span>
+              </div>
+              <div class="doc-desc">Speed Governor & GPS AIS-140 compliance inspected</div>
+              <div class="doc-meta">FC Expiry: <strong>18-Nov-2026</strong> • Green PUC: <strong>Valid</strong></div>
+            </div>
+            <div class="doc-card verified">
+              <div class="doc-head">
+                <span class="doc-name">Commercial Insurance & FASTag</span>
+                <span class="doc-tag highlight-green">Balance: ₹4,850</span>
+              </div>
+              <div class="doc-desc">Comprehensive Commercial Fleet Policy (ICICI Lombard)</div>
+              <div class="doc-meta">Policy: <strong>3001/2026/8912</strong> • FASTag Tag ID: <strong>34161FA8902</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="btn-dismiss-docs-modal">Close</button>
+          <button class="btn btn-primary" onclick="window.print()">Download VAHAN Compliance Dossier</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 6: Broker CRM & Contacts Directory -->
+    <div class="modal-backdrop" id="modal-crm-directory">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-icon">👥</span>
+            <div>
+              <h3 class="modal-title">Broker CRM & Transporter Directory</h3>
+              <p class="modal-subtitle">Verified network of truck owners, drivers, and enterprise shippers</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="btn-close-crm-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="crm-filter-bar">
+            <input type="text" id="crm-search-input" placeholder="Search contacts by name, location, or route..." class="crm-search-box">
+            <div class="crm-type-pills">
+              <button class="crm-pill active" data-filter="ALL">All Contacts</button>
+              <button class="crm-pill" data-filter="TRUCK_OWNER">Truck Owners</button>
+              <button class="crm-pill" data-filter="DRIVER">Drivers</button>
+              <button class="crm-pill" data-filter="SHIPPER">Shippers</button>
+            </div>
+          </div>
+          <div class="crm-contacts-list" id="crm-contacts-container">
+            <!-- Populated from /api/contacts/ -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 7: Lorry Receipt (LR) Bilty & Financial Consignment Note -->
+    <div class="modal-backdrop" id="modal-lorry-receipt">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-icon">🧾</span>
+            <div>
+              <h3 class="modal-title">Official Consignment Note (Lorry Receipt / Bilty)</h3>
+              <p class="modal-subtitle">Government & GST Compliant Indian Road Logistics Consignment Document</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="btn-close-lr-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="bilty-document" id="bilty-print-area">
+            <div class="bilty-header">
+              <div class="bilty-brand">
+                <h2>TRUCKFLOW LOGISTICS NETWORK</h2>
+                <p>National Backhaul Freight Clearing & Transport System</p>
+                <p>GSTIN: 20AABCT1234F1Z8 • IBA Approved Transporters</p>
+              </div>
+              <div class="bilty-meta">
+                <div class="bilty-number">LR NO: <span id="lr-doc-num">LR-2026-9812</span></div>
+                <div class="bilty-date">Date: <span id="lr-doc-date">24-Sep-2026</span></div>
+                <div class="bilty-badge">e-Way Bill Linked</div>
+              </div>
+            </div>
+            <div class="bilty-grid-3">
+              <div class="bilty-box">
+                <div class="box-title">CONSIGNOR (Shipper)</div>
+                <div class="box-body" id="lr-consignor">Tata Steel BSL / Bokaro Complex<br>Ranchi / Bokaro, Jharkhand<br>GSTIN: 20AAACT0012A1Z1</div>
+              </div>
+              <div class="bilty-box">
+                <div class="box-title">CONSIGNEE (Receiver)</div>
+                <div class="box-body" id="lr-consignee">Hyundai Mobis / TVS Motor Spares<br>Ambattur Industrial Estate, Chennai<br>GSTIN: 33AAACT9988B1Z2</div>
+              </div>
+              <div class="bilty-box">
+                <div class="box-title">VEHICLE & DRIVER</div>
+                <div class="box-body" id="lr-vehicle">Truck: <strong id="lr-truck-no">JH-01-AB-1234</strong><br>Driver: <span id="lr-driver-name">Suresh Kumar</span><br>DL: DL-04-2016-9812</div>
+              </div>
+            </div>
+            <table class="bilty-table">
+              <thead>
+                <tr>
+                  <th>Packages</th>
+                  <th>Description of Goods</th>
+                  <th>Actual Weight</th>
+                  <th>Charged Weight</th>
+                  <th>Rate / Ton</th>
+                  <th>Amount (₹)</th>
+                </tr>
+              </thead>
+              <tbody id="lr-table-body">
+                <tr>
+                  <td>8 Coils</td>
+                  <td>Cold Rolled Steel Sheets & Heavy Coils</td>
+                  <td>20.00 MT</td>
+                  <td>20.00 MT</td>
+                  <td>₹4,250 / T</td>
+                  <td>₹85,000</td>
+                </tr>
+                <tr>
+                  <td>Return Backhaul</td>
+                  <td>Automotive Spares & Engine Castings (Zero Empty KM)</td>
+                  <td>18.00 MT</td>
+                  <td>18.00 MT</td>
+                  <td>₹4,333 / T</td>
+                  <td>₹78,000</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="bilty-footer-summary">
+              <div class="bilty-terms">
+                <strong>Notice:</strong> Goods carried under Goods Vehicle Carrier Act. GPS Telemetry & FASTag auto-monitored. 
+              </div>
+              <div class="bilty-total-box">
+                <div class="total-row"><span>Gross Freight:</span> <span>₹1,63,000</span></div>
+                <div class="total-row"><span>FASTag Tolls:</span> <span>₹13,608</span></div>
+                <div class="total-row highlight"><span>Net Payable:</span> <strong id="lr-total-val">₹1,63,000</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="btn-dismiss-lr-modal">Close</button>
+          <button class="btn btn-primary" id="btn-print-bilty">🖨️ Print Lorry Receipt (LR / PDF)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 8: Driver Mobile Proof of Delivery (POD) & Digital Signature Canvas -->
+    <div class="modal-backdrop" id="modal-driver-pod">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-icon">✍️</span>
+            <div>
+              <h3 class="modal-title">Proof of Delivery (POD) Verification</h3>
+              <p class="modal-subtitle">Capture consignee receiver signature and confirm cargo delivery</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="btn-close-pod-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="pod-delivery-summary">
+            <div class="pod-badge">Destination Reached</div>
+            <h4>Ambattur Industrial Estate, Chennai, TN</h4>
+            <p>Consignment: <strong>#TRK-JH-TN-9812</strong> (20.0 MT Steel Coils)</p>
+          </div>
+          <div class="pod-checklist">
+            <label class="checkbox-row">
+              <input type="checkbox" id="chk-seal-intact" checked>
+              <span>Container security seal verified intact upon arrival</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="chk-weight-verified" checked>
+              <span>Physical weighbridge tally matches LR consignment (20T)</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="chk-no-damage" checked>
+              <span>No transit moisture or impact damage reported</span>
+            </label>
+          </div>
+          <div class="signature-section">
+            <div class="sig-header">
+              <label>Receiver / Consignee Digital Signature *</label>
+              <button type="button" class="sig-clear-btn" id="btn-clear-sig">Clear Signature</button>
+            </div>
+            <div class="signature-canvas-container">
+              <canvas id="pod-signature-canvas" width="460" height="140"></canvas>
+            </div>
+            <span class="sig-hint">Sign above with finger, mouse, or stylus</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="btn-dismiss-pod-modal">Cancel</button>
+          <button class="btn btn-success" id="btn-submit-pod">✓ Confirm POD & Trigger Payment</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 9: Corridor Analytics & Demand Performance Reports -->
+    <div class="modal-backdrop" id="modal-analytics-reports">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-icon">📈</span>
+            <div>
+              <h3 class="modal-title">Logistics Corridor Analytics & ESG Impact</h3>
+              <p class="modal-subtitle">Performance breakdown of backhaul corridors, empty-KM mitigation, and carbon savings</p>
+            </div>
+          </div>
+          <button class="modal-close-btn" id="btn-close-analytics-modal">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="analytics-kpi-grid">
+            <div class="analytics-card">
+              <div class="a-label">Total Freight Cleared</div>
+              <div class="a-val highlight-blue">₹1.48 Cr</div>
+              <div class="a-sub">Across 4 major interstate corridors</div>
+            </div>
+            <div class="analytics-card">
+              <div class="a-label">Empty KM Mitigated</div>
+              <div class="a-val highlight-green">142,600 KM</div>
+              <div class="a-sub">+38% backhaul utilization</div>
+            </div>
+            <div class="analytics-card">
+              <div class="a-label">CO₂ Emissions Saved</div>
+              <div class="a-val highlight-gold">86.4 MT</div>
+              <div class="a-sub">ESG Green Logistics Certificate</div>
+            </div>
+            <div class="analytics-card">
+              <div class="a-label">Avg. Round-Trip Margin</div>
+              <div class="a-val highlight-purple">+₹75,660</div>
+              <div class="a-sub">Profit jump vs empty backhauls</div>
+            </div>
+          </div>
+          <div class="corridor-performance-table-wrap">
+            <h4 class="table-title">National Corridor Demand & Balance Scorecard</h4>
+            <table class="corridors-table">
+              <thead>
+                <tr>
+                  <th>Freight Corridor</th>
+                  <th>Active Trucks</th>
+                  <th>Available Loads</th>
+                  <th>Avg. Match Score</th>
+                  <th>Corridor Health</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Ranchi ⇄ Chennai</strong> (NH-16 Corridor)</td>
+                  <td>14</td>
+                  <td>18</td>
+                  <td><span class="match-mini-badge">94%</span></td>
+                  <td><span class="status-pill pill-delivery">Highly Balanced</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Chennai ⇄ Bhubaneswar</strong> (Coastal NH-16)</td>
+                  <td>22</td>
+                  <td>29</td>
+                  <td><span class="match-mini-badge">89%</span></td>
+                  <td><span class="status-pill pill-category">High Demand</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Bhubaneswar ⇄ Ranchi</strong> (Industrial NH-20)</td>
+                  <td>9</td>
+                  <td>16</td>
+                  <td><span class="match-mini-badge badge-purple">88%</span></td>
+                  <td><span class="status-pill highlight-gold">Backhaul Surplus</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Kolkata ⇄ Chennai</strong> (Grand Trunk Southern)</td>
+                  <td>18</td>
+                  <td>21</td>
+                  <td><span class="match-mini-badge">91%</span></td>
+                  <td><span class="status-pill pill-delivery">Balanced</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" id="btn-dismiss-analytics-modal">Close</button>
+          <button class="btn btn-primary" onclick="window.print()">Export Full Logistics Audit Report</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Booking Confirmation Toast Notification -->
+    <div class="toast-notification" id="toast-notify">
+      <div class="toast-icon">✓</div>
+      <div class="toast-message" id="toast-message">Round-trip booked successfully!</div>
+    </div>
+
+  </div>
+
+  <!-- Leaflet JS for Map Animation -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- TruckFlow Scripts -->
+  <script src="/static/js/map_animation.js?v=2.0"></script>
+  <script src="/static/js/app.js?v=2.0"></script>
+</body>
+</html>
